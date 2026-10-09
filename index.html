@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Autodesk Revit Studio 2026 - Simulador Arquitectónico BIM</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;600;700&display=swap">
+  <style>
+    :root {
+      --revit-bg: #1e1e1e;
+      --revit-panel: #252526;
+      --revit-header: #2d2d30;
+      --revit-border: #3e3e42;
+      --revit-blue: #0696d7;
+      --revit-blue-hover: #007acc;
+      --revit-text: #cccccc;
+      --revit-text-bright: #ffffff;
+      --revit-accent: #e5b000;
+      --revit-alert: #f44336;
+      --revit-ok: #4caf50;
+      --sidebar-w: 320px;
+      --rightbar-w: 350px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: var(--revit-bg); color: var(--revit-text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 11px; user-select: none; }
+
+    /* App Grid Layout */
+    #app { display: grid; grid-template-rows: 64px minmax(0, 1fr) 24px; height: 100vh; width: 100vw; }
+
+    /* Revit Ribbon Header */
+    .revit-header { background: var(--revit-header); border-bottom: 1px solid var(--revit-border); display: flex; flex-direction: column; justify-content: space-between; }
+    .title-bar { display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; background: #1b1b1c; border-bottom: 1px solid #2a2a2c; }
+    .title-bar-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--revit-text-bright); font-size: 12px; }
+    .revit-badge { background: var(--revit-blue); color: #fff; padding: 2px 6px; border-radius: 2px; font-size: 10px; font-weight: 800; }
+    
+    .ribbon-tabs { display: flex; gap: 2px; padding: 2px 8px 0; background: var(--revit-header); }
+    .ribbon-tab { padding: 5px 12px; background: transparent; border: none; color: var(--revit-text); cursor: pointer; border-top-left-radius: 3px; border-top-right-radius: 3px; font-size: 11px; }
+    .ribbon-tab.active { background: var(--revit-panel); color: var(--revit-text-bright); font-weight: 600; border-top: 2px solid var(--revit-blue); }
+    
+    .ribbon-toolbar { display: flex; gap: 6px; padding: 4px 12px; background: var(--revit-panel); border-bottom: 1px solid var(--revit-border); align-items: center; }
+    .tool-btn { background: var(--revit-header); border: 1px solid var(--revit-border); color: var(--revit-text-bright); padding: 4px 8px; border-radius: 2px; cursor: pointer; display: flex; align-items: center; gap: 5px; font-size: 11px; }
+    .tool-btn:hover { background: #3e3e42; }
+    .tool-btn.active { background: var(--revit-blue); border-color: var(--revit-blue-hover); color: #fff; }
+
+    /* Main Workspace */
+    .workspace { display: grid; grid-template-columns: var(--sidebar-w) minmax(0, 1fr) var(--rightbar-w); height: 100%; overflow: hidden; }
+
+    /* Panels */
+    .panel { background: var(--revit-panel); border-right: 1px solid var(--revit-border); overflow-y: auto; display: flex; flex-direction: column; }
+    .panel.right { border-right: none; border-left: 1px solid var(--revit-border); }
+    .panel-head { background: var(--revit-header); padding: 6px 10px; font-weight: 700; color: var(--revit-text-bright); text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; border-bottom: 1px solid var(--revit-border); display: flex; justify-content: space-between; align-items: center; }
+    .panel-body { padding: 10px; border-bottom: 1px solid var(--revit-border); }
+
+    /* Inputs */
+    label { display: flex; justify-content: space-between; align-items: center; margin: 5px 0 2px; color: var(--revit-text); }
+    label b { color: var(--revit-blue); font-weight: 600; }
+    input[type=range] { width: 100%; height: 4px; accent-color: var(--revit-blue); background: #333; border-radius: 2px; cursor: pointer; }
+    select, button, input[type=text] { width: 100%; background: #1e1e1e; border: 1px solid var(--revit-border); color: var(--revit-text-bright); padding: 4px 6px; font-size: 11px; border-radius: 2px; margin-bottom: 4px; }
+    button { background: #2d2d30; cursor: pointer; font-weight: 600; }
+    button:hover { background: #3e3e42; }
+
+    /* Viewport 3D */
+    #viewport { position: relative; background: #111518; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+    canvas:active { cursor: grabbing; }
+
+    /* ViewCube & HUD Overlays */
+    .view-cube { position: absolute; top: 12px; right: 12px; width: 64px; height: 64px; background: rgba(37,37,38,0.85); border: 1px solid var(--revit-border); border-radius: 4px; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 9px; backdrop-filter: blur(4px); pointer-events: none; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+    .view-cube span { color: var(--revit-blue); }
+
+    .display-mode-selector { position: absolute; bottom: 12px; left: 12px; display: flex; gap: 4px; background: rgba(37,37,38,0.9); padding: 4px; border: 1px solid var(--revit-border); border-radius: 3px; backdrop-filter: blur(4px); }
+    .display-mode-selector button { width: auto; margin: 0; padding: 3px 6px; font-size: 10px; }
+
+    .dim-tag { position: absolute; transform: translate(-50%, -50%); background: #000; border: 1px solid var(--revit-blue); color: #fff; font-size: 9.5px; font-family: monospace; padding: 2px 4px; border-radius: 2px; pointer-events: none; white-space: nowrap; box-shadow: 0 2px 6px rgba(0,0,0,0.6); }
+
+    /* Schedules / Quantities Table */
+    .schedule-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 4px; }
+    .schedule-table th { background: var(--revit-header); color: var(--revit-text-bright); border: 1px solid var(--revit-border); padding: 4px; text-align: left; }
+    .schedule-table td { border: 1px solid var(--revit-border); padding: 4px; background: var(--revit-panel); }
+    .schedule-table tr:nth-child(even) td { background: #1e1e1e; }
+    .schedule-total { font-weight: 700; color: var(--revit-blue); }
+
+    #warn-box { padding: 6px; border-radius: 2px; margin-top: 8px; font-size: 10px; font-weight: 600; }
+    .ok-box { background: rgba(76, 175, 80, 0.15); border: 1px solid var(--revit-ok); color: var(--revit-ok); }
+    .bad-box { background: rgba(244, 67, 54, 0.15); border: 1px solid var(--revit-alert); color: var(--revit-alert); }
+
+    #chart-canvas { width: 100%; height: 80px; background: #1e1e1e; border: 1px solid var(--revit-border); margin-top: 4px; }
+
+    /* Footer Status Bar */
+    .status-bar { background: #007acc; color: #fff; display: flex; justify-content: space-between; align-items: center; padding: 0 12px; font-size: 10px; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<div id="app">
+  <!-- Header Ribbon Revit -->
+  <header class="revit-header">
+    <div class="title-bar">
+      <div class="title-bar-brand">
+        <span class="revit-badge">RVT</span>
+        <span>Autodesk Revit Studio 2026 - [Modelo_Arquitectónico_BIM.rvt]</span>
+      </div>
+      <div>Magdiel Cortez | Universidad - Proyecto 3D</div>
+    </div>
+    <div class="ribbon-tabs">
+      <button class="ribbon-tab active">Arquitectura</button>
+      <button class="ribbon-tab">Estructura</button>
+      <button class="ribbon-tab">Emplazamiento</button>
+      <button class="ribbon-tab">Análisis Energético</button>
+    </div>
+    <div class="ribbon-toolbar">
+      <button id="bDi" class="tool-btn active">📐 Cotas Temp.</button>
+      <button id="bEx" class="tool-btn">🧱 Vista Explosionada</button>
+      <button id="bGr" class="tool-btn active">🌐 Grillas y Ejes</button>
+      <button id="bLe" class="tool-btn active">📏 Niveles Datums</button>
+      <button id="sv" class="tool-btn">💾 Guardar Referencia</button>
+      <button id="ex" class="tool-btn">📤 Exportar BIM (JSON)</button>
+    </div>
+  </header>
+
+  <div class="workspace">
+    <!-- Panel Izquierdo: Browser y Parámetros -->
+    <aside class="panel">
+      <div class="panel-head">Navegador de Proyecto (Propiedades)</div>
+      <div class="panel-body">
+        <label>Número de Niveles <b id="vN"></b></label>
+        <input type="range" id="N" min="1" max="8" value="4">
+        
+        <label>Largo Base Edificio (m) <b id="vL"></b></label>
+        <input type="range" id="L" min="6" max="30" step="0.1" value="18">
+        
+        <label>Ancho Base Edificio (m) <b id="vW"></b></label>
+        <input type="range" id="W" min="6" max="24" step="0.1" value="12">
+        
+        <label>Altura de Entrepiso (m) <b id="vH"></b></label>
+        <input type="range" id="H" min="2.4" max="4.5" step="0.05" value="3">
+        
+        <label>Material de Fachada</label>
+        <select id="M"></select>
+        
+        <label>Porcentaje Muro Cortina (%) <b id="vG"></b></label>
+        <input type="range" id="G" min="10" max="90" step="1" value="40">
+      </div>
+
+      <div class="panel-head">Propiedades del Nivel Seleccionado</div>
+      <div class="panel-body">
+        <div id="tabs" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(32px, 1fr)); gap:2px; margin-bottom:6px;"></div>
+        <label>Uso de Espacio</label>
+        <select id="U"></select>
+        
+        <label>Largo del Nivel (m) <b id="vFL"></b></label>
+        <input type="range" id="FL" min="4" max="30" step="0.1">
+        
+        <label>Ancho del Nivel (m) <b id="vFW"></b></label>
+        <input type="range" id="FW" min="4" max="24" step="0.1">
+        
+        <label>Altura del Nivel (m) <b id="vFH"></b></label>
+        <input type="range" id="FH" min="2.4" max="5" step="0.05">
+        
+        <button id="rst">Igualar Todos los Niveles</button>
+      </div>
+
+      <div class="panel-head">Entorno, Topografía y Sol</div>
+      <div class="panel-body">
+        <label>Sistema de Fachada</label>
+        <select id="FA">
+          <option>Muro Cortina (Vidrio)</option>
+          <option>Retícula Estructural</option>
+          <option>Lamas Paramétricas</option>
+          <option>Balcones Salientes</option>
+        </select>
+        <label>Densidad de Árboles RPC <b id="vTR"></b></label>
+        <input type="range" id="TR" min="0" max="50" value="16">
+        <label>Altura de Árboles (m) <b id="vTH"></b></label>
+        <input type="range" id="TH" min="4" max="14" value="8">
+        <label>Relieve Toposolid (m) <b id="vRE"></b></label>
+        <input type="range" id="RE" min="0" max="10" step="0.5" value="3">
+        <label>Hora Solar (Asolamiento) <b id="vT"></b></label>
+        <input type="range" id="T" min="6" max="18" step="0.25" value="14">
+      </div>
+    </aside>
+
+    <!-- Viewport 3D Principal -->
+    <main id="viewport">
+      <canvas id="c"></canvas>
+
+      <div class="view-cube">
+        <div>REVIT<br><span>3D ISOM</span></div>
+      </div>
+
+      <div class="display-mode-selector">
+        <button id="mCons" class="tool-btn active">Colores Coherentes</button>
+        <button id="mReal" class="tool-btn">Realista</button>
+        <button id="mWire" class="tool-btn">Alámbrico</button>
+      </div>
+
+      <div class="dim-tag" id="d1"></div>
+      <div class="dim-tag" id="d2"></div>
+      <div class="dim-tag" id="d3"></div>
+    </main>
+
+    <!-- Panel Derecho: Schedules de Cantidades y POT -->
+    <aside class="panel right">
+      <div class="panel-head">Tabla de Planificación (Schedule Takeoff)</div>
+      <div class="panel-body">
+        <table class="schedule-table">
+          <tr><th>Parámetro BIM</th><th>Medida / Valor</th></tr>
+          <tr><td>Presupuesto Estimado</td><td id="kCost" class="schedule-total"></td></tr>
+          <tr><td>Superficie Construida Total</td><td id="kA"></td></tr>
+          <tr><td>Volumen Edificado</td><td id="kV"></td></tr>
+          <tr><td>Altura de Cúspide</td><td id="kT"></td></tr>
+          <tr><td>Área Envolvente Exterior</td><td id="kE"></td></tr>
+          <tr><td>Pérdida Térmica Transmitida</td><td id="kQ"></td></tr>
+          <tr><td>Costo Promedio por m²</td><td id="kM"></td></tr>
+        </table>
+        <div id="perFloor" style="margin-top:8px;"></div>
+      </div>
+
+      <div class="panel-head">Verificación Normativa de Lote (POT)</div>
+      <div class="panel-body">
+        <label>Semiperímetro del Terreno (m) <b id="vB"></b></label>
+        <input type="range" id="B" min="20" max="90" step="0.5" value="50">
+        <label>Lado X (m) <b id="vX"></b></label>
+        <input type="range" id="X" min="0" max="45" step="0.1" value="22">
+        <label>Aislamiento Normativo (m) <b id="vR"></b></label>
+        <input type="range" id="R" min="0" max="6" step="0.5" value="3">
+        
+        <canvas id="chart-canvas"></canvas>
+        
+        <table class="schedule-table" style="margin-top:6px;">
+          <tr><td>Área Total Terreno</td><td id="kLot"></td></tr>
+          <tr><td>Área Máx. Teórica (x = b/2)</td><td id="kMax"></td></tr>
+          <tr><td>Índice de Ocupación</td><td id="kOc"></td></tr>
+          <tr><td>Índice de Construcción</td><td id="kIc"></td></tr>
+          <tr><td>Aforo Estimado Ocupantes</td><td id="kAf"></td></tr>
+          <tr><td>Área Libre Terreno</td><td id="kLi"></td></tr>
+        </table>
+        
+        <div id="warn-box"></div>
+      </div>
+
+      <div class="panel-head">Análisis Comparativo</div>
+      <div class="panel-body">
+        <table id="cmp" class="schedule-table"></table>
+      </div>
+    </aside>
+  </div>
+
+  <!-- Status Bar -->
+  <footer class="status-bar">
+    <span>Escala 1:100 | Nivel de Detalle: Alto (Fine) | Modelo de Información Integrado BIM</span>
+    <span>Ortogonal 3D | Render: WebGL ACESFilmic</span>
+  </footer>
+</div>
+
+<!-- Three.js CDN Motor Gráfico -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+
+// Configuración de Materiales BIM Estilo Revit
+const MAT = {
+  'Concreto Struct 30MPa': { c: 0x9e9e9e, m2: 2800000, U: 2.0 },
+  'Ladrillo Fachada Aislado': { c: 0xa0522d, m2: 2400000, U: 1.3 },
+  'Paneles de Madera Teak': { c: 0xb8860b, m2: 2600000, U: 0.6 },
+  'Composite de Aluminio': { c: 0x607d8b, m2: 3000000, U: 1.1 }
+};
+const USO = {
+  Vivienda: { f: 1, a: 15, c: 0x3d4e56, item: 'residential' },
+  Oficina: { f: 1.1, a: 10, c: 0x2b3e4a, item: 'office' },
+  Comercio: { f: 0.95, a: 4, c: 0x4a3b2b, item: 'retail' }
+};
+
+const UG = 2.8, GLASS_M2 = 3.6e6;
+const S = { sel: 0, ex: false, dim: true, grids: true, levels: true, mode: 'consistent', ref: null, floors: [] };
+
+const fmt = (n, d = 1) => n.toLocaleString('es-CO', { minimumFractionDigits: d, maximumFractionDigits: d });
+const cop = n => '$ ' + Math.round(n / 1e6).toLocaleString('es-CO') + ' M';
+
+Object.keys(MAT).forEach(k => $('M').add(new Option(k, k)));
+Object.keys(USO).forEach(k => $('U').add(new Option(k, k)));
+
+/* Escena y Renderizador 3D */
+const cv = $('c'), R = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+R.setPixelRatio(Math.min(devicePixelRatio, 2));
+R.shadowMap.enabled = true;
+R.shadowMap.type = THREE.PCFSoftShadowMap;
+R.outputEncoding = THREE.sRGBEncoding;
+
+const scene = new THREE.Scene(), cam = new THREE.PerspectiveCamera(38, 1, 0.1, 800);
+scene.background = new THREE.Color(0x111518);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x333338, 0.85));
+const sun = new THREE.DirectionalLight(0xffffff, 1.15);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 300 });
+scene.add(sun);
+
+const group = new THREE.Group(); scene.add(group);
+let th = 0.8, ph = 1.05, dist = 60;
+
+const totalH = () => S.floors.reduce((a, f) => a + f.H, 0);
+const yOf = i => S.floors.slice(0, i).reduce((a, f) => a + f.H + (S.ex ? 1.5 : 0), 0);
+
+const UB = new THREE.BoxGeometry(1, 1, 1);
+const TG = { trunk: new THREE.CylinderGeometry(0.3, 0.4, 1, 6), crown: new THREE.DodecahedronGeometry(1) };
+const TM = { trunk: new THREE.MeshStandardMaterial({ color: 0x3e2723 }), crown: new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.9 }) };
+
+// Función para añadir componentes con líneas de bordes de Revit (Consistent Colors)
+function addMesh(geo, mat, x, y, z, sc, lineColor = 0x1a1a1a) {
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(x, y, z);
+  if (sc) mesh.scale.set(...sc);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+
+  if (S.mode === 'consistent') {
+    const edges = new THREE.EdgesGeometry(geo);
+    const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: lineColor }));
+    mesh.add(line);
+  }
+  group.add(mesh);
+  return mesh;
+}
+
+function box(w, h, d, mat, x, y, z, sh = true, lineColor = 0x1a1a1a) {
+  return addMesh(UB, mat, x, y, z, [w, h, d], lineColor);
+}
+
+// Creación de Mobiliario Paramétrico Interior
+function addFurniture(w, d, y, type) {
+  const fMat = new THREE.MeshStandardMaterial({ color: 0xd7ccc8, roughness: 0.6 });
+  if (type === 'office') {
+    for (let x = -w / 3; x <= w / 3; x += 4) {
+      for (let z = -d / 3; z <= d / 3; z += 4) {
+        box(1.2, 0.75, 0.8, fMat, x, y + 0.375, z, false, 0x333333); // Escritorio
+      }
+    }
+  } else if (type === 'residential') {
+    box(2, 0.5, 1.8, fMat, -w / 4, y + 0.25, -d / 4, false); // Cama
+    box(2.2, 0.6, 0.9, fMat, w / 4, y + 0.3, d / 4, false); // Sofá
+  }
+}
+
+// Renderizado de Grillas y Niveles Estilo Revit
+function drawGridsAndLevels(lot, fp) {
+  if (S.grids) {
+    const gridMat = new THREE.LineDashedMaterial({ color: 0x0696d7, dashSize: 0.5, gapSize: 0.25 });
+    const createGridLine = (x1, z1, x2, z2) => {
+      const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x1, 0.1, z1), new THREE.Vector3(x2, 0.1, z2)]);
+      const l = new THREE.Line(g, gridMat); l.computeLineDistances(); group.add(l);
+    };
+    createGridLine(-fp.L / 2 - 4, -fp.W / 2, fp.L / 2 + 4, -fp.W / 2); // Eje 1
+    createGridLine(-fp.L / 2 - 4, fp.W / 2, fp.L / 2 + 4, fp.W / 2);   // Eje 2
+    createGridLine(-fp.L / 2, -fp.W / 2 - 4, -fp.L / 2, fp.W / 2 + 4); // Eje A
+    createGridLine(fp.L / 2, -fp.W / 2 - 4, fp.L / 2, fp.W / 2 + 4);   // Eje B
+  }
+
+  if (S.levels) {
+    S.floors.forEach((f, i) => {
+      const y = yOf(i);
+      const levelGeo = new THREE.PlaneGeometry(fp.L + 8, fp.W + 8);
+      const levelMat = new THREE.MeshBasicMaterial({ color: 0x0696d7, transparent: true, opacity: 0.06, side: THREE.DoubleSide });
+      const lm = new THREE.Mesh(levelGeo, levelMat);
+      lm.rotation.x = -Math.PI / 2; lm.position.y = y; group.add(lm);
+    });
+  }
+}
+
+function build() {
+  group.children.slice().forEach(o => { if (o.geometry) o.geometry.dispose(); group.remove(o); });
+
+  const m = MAT[$('M').value], gl = +$('G').value / 100, lot = lotDims(), fa = $('FA').value;
+  const wm = new THREE.MeshStandardMaterial({ color: m.c, roughness: 0.8 });
+  const wmSel = new THREE.MeshStandardMaterial({ color: 0x0696d7, roughness: 0.4, emissive: 0x002244 });
+  const glassM = new THREE.MeshPhysicalMaterial({ color: 0x90caf9, transparent: true, opacity: 0.45, roughness: 0.1, metalness: 0.1 });
+  const colMat = new THREE.MeshStandardMaterial({ color: 0x424242, roughness: 0.5 });
+  const slabM = {}; Object.keys(USO).forEach(k => slabM[k] = new THREE.MeshStandardMaterial({ color: USO[k].c }));
+
+  // 1. Topografía Toposolid con Curvas de Nivel
+  const amp = +$('RE').value, seg = 60, tg = new THREE.PlaneGeometry(220, 220, seg, seg);
+  tg.rotateX(-Math.PI / 2);
+  const pos = tg.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i), z = pos.getZ(i);
+    const d = Math.hypot(Math.max(Math.abs(x) - lot.L / 2 - 8, 0), Math.max(Math.abs(z) - lot.W / 2 - 8, 0));
+    const t = Math.min(d / 28, 1), sm = t * t * (3 - 2 * t);
+    pos.setY(i, amp * sm * (Math.sin(x * 0.08) * Math.cos(z * 0.08)) * 1.8 - 0.05);
+  }
+  tg.computeVertexNormals();
+  const tm = new THREE.Mesh(tg, new THREE.MeshStandardMaterial({ color: 0x222a22, roughness: 0.95, wireframe: S.mode === 'wireframe' }));
+  tm.receiveShadow = true; group.add(tm);
+
+  // Curvas de Nivel (Contour Lines)
+  const isoWire = new THREE.LineSegments(new THREE.WireframeGeometry(tg), new THREE.LineBasicMaterial({ color: 0x334433, transparent: true, opacity: 0.4 }));
+  group.add(isoWire);
+
+  // Límite de Propiedad
+  const lg = new THREE.PlaneGeometry(lot.L, lot.W);
+  const ed = new THREE.LineSegments(new THREE.EdgesGeometry(lg), new THREE.LineBasicMaterial({ color: 0xe5b000, linewidth: 2 }));
+  ed.rotation.x = -Math.PI / 2; ed.position.y = 0.04; group.add(ed);
+
+  // 2. Construcción por Pisos (Slabs, Columns, Curtain Walls)
+  const fp = S.floors.reduce((a, f) => ({ L: Math.max(a.L, f.L), W: Math.max(a.W, f.W) }), { L: 0, W: 0 });
+
+  S.floors.forEach((f, i) => {
+    const y = yOf(i), yb = y + 0.25, avail = f.H - 0.25;
+    const gh = avail * (0.15 + 0.75 * gl), sill = (avail - gh) * 0.45, head = avail - gh - sill;
+    const wmi = i === S.sel ? wmSel : wm, gy = yb + sill + gh / 2;
+
+    // Losa Estructural
+    box(f.L + 0.4, 0.25, f.W + 0.4, slabM[f.u], 0, y + 0.125, 0, true, 0x000000);
+
+    // Columnas Estructurales Perimetrales
+    const colSize = 0.4;
+    [[-f.L / 2, -f.W / 2], [f.L / 2, -f.W / 2], [-f.L / 2, f.W / 2], [f.L / 2, f.W / 2]].forEach(([cx, cz]) => {
+      box(colSize, f.H, colSize, colMat, cx, y + f.H / 2, cz);
+    });
+
+    // Envolvente y Muro Cortina
+    box(f.L, sill, f.W, wmi, 0, yb + sill / 2, 0); // Antepecho
+    box(f.L + 0.02, gh, f.W + 0.02, glassM, 0, gy, 0, false, 0x0696d7); // Vidrio
+    box(f.L, head, f.W, wmi, 0, yb + sill + gh + head / 2, 0); // Dintel
+
+    // Montantes de Muro Cortina (Perfilería de Aluminio)
+    const nPanelsX = Math.round(f.L / 2);
+    for (let j = 0; j <= nPanelsX; j++) {
+      const px = -f.L / 2 + (f.L * j) / nPanelsX;
+      box(0.08, gh, 0.12, colMat, px, gy, f.W / 2 + 0.02);
+      box(0.08, gh, 0.12, colMat, px, gy, -f.W / 2 - 0.02);
+    }
+
+    // Mobiliario Interior
+    addFurniture(f.L, f.W, y + 0.25, USO[f.u].item);
+  });
+
+  // Cubierta / Techo
+  const t = S.floors.length - 1, ft = S.floors[t];
+  box(ft.L + 0.4, 0.3, ft.W + 0.4, colMat, 0, yOf(t) + ft.H, 0);
+
+  // 3. Arbolado RPC y Detalle
+  const nT = +$('TR').value, tH = +$('TH').value;
+  for (let tr = 0; tr < nT; tr++) {
+    const x = (Math.sin(tr * 3) * 0.45) * lot.L * 1.5;
+    const z = (Math.cos(tr * 5) * 0.45) * lot.W * 1.5;
+    if (Math.abs(x) < fp.L / 2 + 2 && Math.abs(z) < fp.W / 2 + 2) continue;
+    const h = tH * (0.7 + (tr % 5) * 0.1);
+    addMesh(TG.trunk, TM.trunk, x, h * 0.25, z, [h * 0.04, h * 0.5, h * 0.04]);
+    addMesh(TG.crown, TM.crown, x, h * 0.65, z, [h * 0.25, h * 0.35, h * 0.25]);
+  }
+
+  drawGridsAndLevels(lot, fp);
+  dist = Math.max(50, totalH() * 2.2, lot.L * 1.3);
+}
+
+function lotDims() { const b = +$('B').value, x = +$('X').value; return { L: Math.max(b - x, 0.1), W: Math.max(x, 0.1) }; }
+
+function resize() {
+  const r = $('viewport').getBoundingClientRect();
+  R.setSize(r.width, r.height, false);
+  cam.aspect = r.width / r.height;
+  cam.updateProjectionMatrix();
+}
+
+function label(el, v, txt) {
+  const p = v.clone().project(cam), r = $('viewport').getBoundingClientRect();
+  el.style.display = S.dim && p.z < 1 ? 'block' : 'none';
+  el.style.left = (p.x + 1) / 2 * r.width + 'px';
+  el.style.top = (1 - p.y) / 2 * r.height + 'px';
+  el.textContent = txt;
+}
+
+function draw() {
+  const top = (totalH() + (S.ex ? 1.5 * S.floors.length : 0)) / 2;
+  cam.position.set(dist * Math.sin(ph) * Math.cos(th), top + dist * Math.cos(ph), dist * Math.sin(ph) * Math.sin(th));
+  cam.lookAt(0, top, 0);
+
+  const h = +$('T').value, a = (h - 6) / 12 * Math.PI;
+  sun.position.set(Math.cos(a) * 80, Math.sin(a) * 80 + 10, 30);
+
+  const f = S.floors[S.sel], y = yOf(S.sel);
+  label($('d1'), new THREE.Vector3(0, y, f.W / 2 + 1), 'L = ' + fmt(f.L, 2) + ' m');
+  label($('d2'), new THREE.Vector3(f.L / 2 + 1, y, 0), 'W = ' + fmt(f.W, 2) + ' m');
+  label($('d3'), new THREE.Vector3(-f.L / 2, y + f.H / 2, f.W / 2), 'H = ' + fmt(f.H, 2) + ' m');
+
+  R.render(scene, cam);
+  requestAnimationFrame(draw);
+}
+
+/* Eventos y Control del Mouse */
+let pts = new Map(), last = null;
+cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, e); last = e; });
+cv.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  pts.set(e.pointerId, e);
+  th -= (e.clientX - last.clientX) * 0.008;
+  ph = Math.min(1.5, Math.max(0.15, ph - (e.clientY - last.clientY) * 0.008));
+  last = e;
+});
+const up = e => { pts.delete(e.pointerId); last = [...pts.values()][0] || null; };
+cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+cv.addEventListener('wheel', e => { e.preventDefault(); dist = Math.min(250, Math.max(10, dist * (1 + e.deltaY * 0.001))); }, { passive: false });
+addEventListener('resize', resize);
+
+/* CÁLCULOS Y TABLAS SCHEDULE */
+let cur = {};
+function calc() {
+  const m = MAT[$('M').value], gl = +$('G').value / 100, fix = 50e6, dT = 10, lot = lotDims(), r = +$('R').value;
+  let A = 0, E = 0, V = 0, cost = 0, Q = 0, rows = '', maxA = 0, fits = true;
+  const Ueq = (1 - gl) * m.U + gl * UG, vm2 = m.m2 * (1 - gl) + GLASS_M2 * gl;
+
+  S.floors.forEach((f, i) => {
+    const a = f.L * f.W, fac = 2 * (f.L + f.W) * f.H, c = a * vm2 * USO[f.u].f + fix;
+    A += a; E += fac; V += a * f.H; cost += c; Q += fac * Ueq * dT; maxA = Math.max(maxA, a);
+    if (f.L > lot.L - 2 * r || f.W > lot.W - 2 * r) fits = false;
+    rows += `<tr><td>Nivel ${i + 1} (${f.u})</td><td>${fmt(a)} m²</td><td>${cop(c)}</td></tr>`;
+  });
+
+  const lotA = lot.L * lot.W, b = +$('B').value;
+  cur = { costo: cost, area: A, volumen: V, perdida_kW: Q / 1000, ocupacion: maxA / lotA, indice_construccion: A / lotA };
+
+  $('kCost').textContent = cop(cost);$('kA').textContent = fmt(A) + ' m²'; $('kV').textContent = fmt(V, 0) + ' m³';$('kT').textContent = fmt(totalH(), 2) + ' m'; $('kE').textContent = fmt(E) + ' m²';$('kQ').textContent = fmt(Q / 1000) + ' kW';
+  $('kM').textContent = '$ ' + fmt(cost / A / 1e6, 2) + ' M/m²';
+
+  $('perFloor').innerHTML = '<table class="schedule-table"><tr><th>Nivel</th><th>Área</th><th>Costo</th></tr>' + rows + '</table>';
+
+  $('kLot').textContent = fmt(lotA) + ' m²';$('kMax').textContent = fmt(b * b / 4) + ' m²';
+  $('kOc').textContent = fmt(cur.ocupacion * 100) + ' \%';$('kIc').textContent = fmt(cur.indice_construccion, 2);
+
+  const aforo = S.floors.reduce((a, f) => a + f.L * f.W / USO[f.u].a, 0);
+  cur.aforo = aforo; cur.area_libre = lotA - maxA;
+
+  $('kAf').textContent = Math.round(aforo) + ' Ocupantes';$('kLi').textContent = fmt(lotA - maxA) + ' m²';
+
+  $('warn-box').className = fits ? 'ok-box' : 'bad-box';
+  $('warn-box').textContent = fits ? '✓ CUMPLE NORMATIVA: Implantación correcta dentro del retiro exigido.' : '⚠ ALERTA: El edificio excede el retiro normativo exigido.';
+
+  curve(); cmp();
+}
+
+function curve() {
+  const b = +$('B').value, x = +$('X').value, best = b * b / 4, c =$('chart-canvas'), w = c.width = c.clientWidth * 2, hh = c.height = 160, g = c.getContext('2d');
+  g.strokeStyle = '#0696d7'; g.lineWidth = 3; g.beginPath();
+  for (let i = 0; i <= 100; i++) {
+    const xx = b * i / 100, px = 10 + (w - 20) * i / 100, py = hh - 12 - (hh - 28) * (xx * (b - xx)) / best;
+    i ? g.lineTo(px, py) : g.moveTo(px, py);
+  } g.stroke();
+  g.fillStyle = '#e5b000'; g.beginPath();
+  g.arc(10 + (w - 20) * x / b, hh - 12 - (hh - 28) * (x * (b - x)) / best, 6, 0, 7); g.fill();
+}
+
+function cmp() {
+  const rows = [['Presupuesto Total', k => cop(k.costo)], ['Área Total', k => fmt(k.area) + ' m²'], ['Índice Ocupación', k => fmt(k.ocupacion * 100) + ' %'], ['Índice Constr.', k => fmt(k.indice_construccion, 2)]];
+  $('cmp').innerHTML = S.ref ? '<tr><th>Métrica</th><th>Línea Base</th><th>Actual</th></tr>' + rows.map(([n, f]) => `<tr><td>${n}</td><td>${f(S.ref)}</td><td>${f(cur)}</td></tr>`).join('') : '<tr><td colspan="2" style="color:#888;">Guarde un estado como línea base para comparar.</td></tr>';
+}
+
+function sync() {
+  const b = +$('B').value; $('X').max = b; if (+$('X').value > b)$('X').value = b;
+  [['N', 0], ['L', 1], ['W', 1], ['H', 2], ['G', 0], ['B', 1], ['X', 1], ['R', 1], ['TR', 0], ['TH', 0], ['RE', 1], ['T', 2]].forEach(([k, d]) => $('v' + k).textContent = fmt(+$(k).value, d));
+
+  $('tabs').innerHTML = '';
+  S.floors.forEach((f, i) => {
+    const t = document.createElement('button');
+    t.textContent = 'N' + (i + 1);
+    t.style.border = i === S.sel ? '1px solid #0696d7' : '1px solid #3e3e42';
+    t.style.background = i === S.sel ? '#0696d7' : '#1e1e1e';
+    t.onclick = () => { S.sel = i; sync(); };
+    $('tabs').appendChild(t);
+  });
+
+  const f = S.floors[S.sel]; $('FL').value = f.L; $('FW').value = f.W; $('FH').value = f.H; $('U').value = f.u;
+  $('vFL').textContent = fmt(f.L); $('vFW').textContent = fmt(f.W);$('vFH').textContent = fmt(f.H, 2);
+  build(); calc();
+}
+
+function fit() {
+  const n = +$('N').value;
+  while (S.floors.length < n) S.floors.push({ L: +$('L').value, W: +$('W').value, H: +$('H').value, u: 'Vivienda' });
+  S.floors.length = n; S.sel = Math.min(S.sel, n - 1);
+}
+
+$('N').oninput = () => { fit(); sync(); };
+['L', 'W', 'H'].forEach(k => $(k).oninput = () => { S.floors.forEach(f => f[k] = +$(k).value); sync(); });
+['M', 'G', 'B', 'X', 'R', 'FA', 'TR', 'TH', 'RE', 'T'].forEach(k => $(k).oninput = sync);
+$('FL').oninput = () => { S.floors[S.sel].L = +$('FL').value; sync(); };
+$('FW').oninput = () => { S.floors[S.sel].W = +$('FW').value; sync(); };
+$('FH').oninput = () => { S.floors[S.sel].H = +$('FH').value; sync(); };
+$('U').onchange = () => { S.floors[S.sel].u =$('U').value; sync(); };
+$('rst').onclick = () => { S.floors.forEach(f => { f.L = +$('L').value; f.W = +$('W').value; f.H = +$('H').value; }); sync(); };
+
+// Botones Toolbar Revit Mode
+$('bEx').onclick = e => { S.ex = !S.ex; e.target.classList.toggle('active', S.ex); build(); };$('bDi').onclick = e => { S.dim = !S.dim; e.target.classList.toggle('active', S.dim); };
+$('bGr').onclick = e => { S.grids = !S.grids; e.target.classList.toggle('active', S.grids); build(); };$('bLe').onclick = e => { S.levels = !S.levels; e.target.classList.toggle('active', S.levels); build(); };
+
+$('mCons').onclick = () => { S.mode = 'consistent'; updateDisplayButtons('mCons'); build(); };
+$('mReal').onclick = () => { S.mode = 'realistic'; updateDisplayButtons('mReal'); build(); };$('mWire').onclick = () => { S.mode = 'wireframe'; updateDisplayButtons('mWire'); build(); };
+
+function updateDisplayButtons(activeId) {
+  ['mCons', 'mReal', 'mWire'].forEach(id => $(id).classList.toggle('active', id === activeId));
+}
+
+$('sv').onclick = () => { S.ref = { ...cur }; cmp(); };$('ex').onclick = () => {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify({ software: "Autodesk Revit Studio 2026", pisos: S.floors, metricas: cur }, null, 2)], { type: 'application/json' }));
+  a.download = 'BIM_Modelo_Revit.json'; a.click();
+};
+
+fit(); sync(); resize(); draw();
+</script>
+</body>
+</html>
